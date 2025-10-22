@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Retro Player Collection</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        /* (기본 스타일) */
+        body {
+            background-color: #008080;
+            font-family: 'Tahoma', 'Arial', sans-serif;
+            font-size: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            position: relative; 
+        }
+
+        /* --- 1. 왼쪽 상단 컨트롤 패널 --- */
+        #global-control-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 100%;
+            max-width: 480px; 
+            background-color: rgb(192, 192, 192);
+            border-top: 2px solid rgb(255, 255, 255);
+            border-left: 2px solid rgb(255, 255, 255);
+            border-right: 2px solid rgb(0, 0, 0);
+            border-bottom: 2px solid rgb(0, 0, 0);
+            box-shadow: 1px 1px 5px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+        .tab-buttons {
+            display: flex;
+            padding: 5px 5px 0 5px;
+            border-bottom: 2px solid rgb(128, 128, 128);
+            flex-wrap: wrap;
+        }
+        .tab-link {
+            background-color: rgb(192, 192, 192);
+            border: 2px outset rgb(192, 192, 192);
+            border-bottom: none;
+            padding: 6px 10px;
+            margin-right: 3px;
+            cursor: pointer;
+            position: relative;
+            top: 2px;
+            border-radius: 5px 5px 0 0;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+        .tab-link.active {
+            border-top: 2px solid rgb(255, 255, 255);
+            border-left: 2px solid rgb(255, 255, 255);
+            border-right: 2px solid rgb(0, 0, 0);
+            border-bottom: 2px solid rgb(192, 192, 192);
+            font-weight: bold;
+            top: 0px;
+            padding-top: 8px;
+            padding-bottom: 8px;
+            z-index: 2;
+        }
+        .tab-link:not(.active):hover { background-color: #ddd; }
+        
+        /* 공용 파일 로더 (컨트롤 패널 내부) */
+        .global-controls {
+            padding: 8px;
+            display: flex;
+            align-items: center;
+        }
+        .retro-file-label {
+            background-color: rgb(192, 192, 192);
+            border-top: 2px solid rgb(255, 255, 255);
+            border-left: 2px solid rgb(255, 255, 255);
+            border-right: 2px solid rgb(0, 0, 0);
+            border-bottom: 2px solid rgb(0, 0, 0);
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        .retro-file-label:active { border-style: inset; }
+        input[type="file"] { display: none; }
+        .file-name-display {
+            margin-left: 10px;
+            font-size: 11px;
+            background: white;
+            color: black;
+            padding: 2px 4px;
+            border: 2px solid;
+            border-color: rgb(128, 128, 128) rgb(255, 255, 255) rgb(255, 255, 255) rgb(128, 128, 128);
+            flex-grow: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* --- 2. 중앙 플레이어 래퍼 --- */
+        #player-wrapper {
+            width: 100%;
+            max-width: 480px;
+            margin-top: 150px; 
+        }
+        
+        .player-content {
+            display: none; 
+            width: 100%;
+            box-sizing: border-box;
+            background-color: rgb(192, 192, 192);
+            border: 2px solid;
+            border-color: rgb(255, 255, 255) rgb(0, 0, 0) rgb(0, 0, 0) rgb(255, 255, 255);
+            padding: 3px;
+            box-shadow: 1px 1px 5px rgba(0,0,0,0.5);
+        }
+
+        /* --- 공용 클래스 (레트로) --- */
+        .retro-title-bar {
+            color: white; font-weight: bold; padding: 4px 6px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .retro-window-buttons { display: flex; }
+        .retro-window-button {
+            width: 18px; height: 18px; background-color: rgb(192, 192, 192);
+            border-top: 2px solid rgb(255, 255, 255); border-left: 2px solid rgb(255, 255, 255);
+            border-right: 2px solid rgb(0, 0, 0); border-bottom: 2px solid rgb(0, 0, 0);
+            margin-left: 2px; font-weight: bold; font-size: 10px;
+            display: flex; justify-content: center; align-items: center; line-height: 10px;
+        }
+        .retro-menu-bar {
+            background-color: rgb(192, 192, 192); padding: 3px 2px;
+        }
+        .retro-menu-bar span { margin: 0 4px; padding: 1px 4px; }
+        .retro-menu-bar span:hover { background-color: rgb(0, 0, 128); color: white; }
+        .retro-video-screen {
+            background-color: black;
+            border: 2px solid;
+            border-color: rgb(128, 128, 128) rgb(255, 255, 255) rgb(255, 255, 255) rgb(128, 128, 128);
+            height: 240px; display: flex; justify-content: center; align-items: center; color: gray;
+        }
+        .retro-video-screen img { width: 120px; opacity: 0.8; display: block; }
+        .retro-video-screen video { width: 100%; height: 100%; display: none; }
+        .retro-control-button {
+            background-color: rgb(192, 192, 192);
+            border-top: 2px solid rgb(255, 255, 255); border-left: 2px solid rgb(255, 255, 255);
+            border-right: 2px solid rgb(0, 0, 0); border-bottom: 2px solid rgb(0, 0, 0);
+            width: 28px; height: 26px; margin-right: 3px;
+            font-weight: bold; font-size: 14px; line-height: 18px;
+        }
+        .retro-control-button:active { border-style: inset; }
+        .retro-seek-bar {
+            width: 100%; margin: 0 5px; -webkit-appearance: none; appearance: none;
+            height: 16px; background: transparent;
+            border-top: 2px solid rgb(128, 128, 128); border-left: 2px solid rgb(128, 128, 128);
+            border-right: 2px solid rgb(255, 255, 255); border-bottom: 2px solid rgb(255, 255, 255);
+            padding: 0;
+        }
+        .retro-seek-bar::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none; width: 16px; height: 20px;
+            background: rgb(192, 192, 192);
+            border-top: 2px solid rgb(255, 255, 255); border-left: 2px solid rgb(255, 255, 255);
+            border-right: 2px solid rgb(0, 0, 0); border-bottom: 2px solid rgb(0, 0, 0);
+            cursor: pointer; margin-top: -4px;
+        }
+        .retro-seek-bar::-moz-range-thumb {
+            width: 16px; height: 20px; background: rgb(192, 192, 192);
+            border-top: 2px solid rgb(255, 255, 255); border-left: 2px solid rgb(255, 255, 255);
+            border-right: 2px solid rgb(0, 0, 0); border-bottom: 2px solid rgb(0, 0, 0);
+            cursor: pointer;
+        }
+        .retro-info-panel {
+            background-color: black; color: white; padding: 8px 10px; font-size: 11px;
+            line-height: 1.5; border: 2px solid;
+            border-color: rgb(128, 128, 128) rgb(255, 255, 255) rgb(255, 255, 255) rgb(128, 128, 128);
+        }
+
+        /* --- Player 1: WMP Classic --- */
+        #wmpClassicPlayer .retro-title-bar {
+            background: linear-gradient(to right, rgb(0, 0, 128), rgb(16, 132, 208));
+        }
+        #wmpClassicPlayer .retro-title-bar::before {
+            content: ''; width: 16px; height: 16px;
+            background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAACFSURBVDhPY/hPY2BgYMjKysp/gIwAI1iwgJGREcYGrP9pMExj2P80WAmkAxYdDDL/IFQvA5Vj+P/fPyAI0AEKRsZ/sPwfzIaB9v+vjAxyAGoYjRgNYjQgaRojNHg0YBQjNBiNVjQYaDRhNFB/MBrRaMBoBKMhI2h4NBYNAADPvQlRZYd+uAAAAABJRU5ErkJggg==');
+            background-size: 16px 16px; margin-right: 5px;
+        }
+        #wmpClassicPlayer .controls-panel {
+            border-top: 1px solid rgb(128, 128, 128); border-bottom: 1px solid rgb(255, 255, 255);
+            padding: 5px 0;
+        }
+        #wmpClassicPlayer .playback-controls {
+            display: flex; align-items: center; padding: 4px 8px;
+        }
+
+        /* --- Player 2: RealPlayer 5.0 (디자인 대폭 수정) --- */
+        #realPlayer5 .retro-title-bar {
+            background: linear-gradient(to right, rgb(0, 0, 128), rgb(16, 132, 208));
+        }
+        #realPlayer5 .retro-video-screen img { width: 180px; }
+        
+        /* [수정] 컨트롤 패널 */
+        #realPlayer5 .controls-panel {
+            display: flex; align-items: center; padding: 4px 8px;
+            border-top: 1px solid rgb(128, 128, 128); border-bottom: 1px solid rgb(255, 255, 255);
+        }
+        /* [수정] 컨트롤 버튼 (사진과 동일하게) */
+        #realPlayer5 .rp5-control-button {
+            background-color: rgb(192, 192, 192);
+            border-top: 2px solid rgb(255, 255, 255); border-left: 2px solid rgb(255, 255, 255);
+            border-right: 2px solid rgb(0, 0, 0); border-bottom: 2px solid rgb(0, 0, 0);
+            width: 32px; height: 24px; margin-right: 1px;
+            font: bold 12px "Arial";
+            display: flex; justify-content: center; align-items: center;
+        }
+        #realPlayer5 .rp5-control-button:active { border-style: inset; }
+        
+        /* [수정] 탐색 바 (움푹 파인 스타일) */
+        #realPlayer5 .rp5-seek-bar-container {
+            flex-grow: 1;
+            padding: 0 4px;
+        }
+        #realPlayer5 .rp5-seek-bar {
+            width: 100%; margin: 0;
+            -webkit-appearance: none; appearance: none;
+            height: 18px; background: #fff;
+            border: 2px solid;
+            border-color: rgb(128, 128, 128) rgb(255, 255, 255) rgb(255, 255, 255) rgb(128, 128, 128);
+        }
+        #realPlayer5 .rp5-seek-bar::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none; width: 16px; height: 20px;
+            background: rgb(192, 192, 192);
+            border-top: 2px solid rgb(255, 255, 255); border-left: 2px solid rgb(255, 255, 255);
+            border-right: 2px solid rgb(0, 0, 0); border-bottom: 2px solid rgb(0, 0, 0);
+            cursor: pointer; margin-top: -3px;
+        }
+        #realPlayer5 .rp5-seek-bar::-moz-range-thumb {
+             width: 16px; height: 20px; background: rgb(192, 192, 192);
+            border-top: 2px solid rgb(255, 255, 255); border-left: 2px solid rgb(255, 255, 255);
+            border-right: 2px solid rgb(0, 0, 0); border-bottom: 2px solid rgb(0, 0, 0);
+        }
+        /* [추가] Real 로고 */
+        #realPlayer5 .rp5-logo {
+            width: 30px; height: 24px;
+            border: 2px outset rgb(192,192,192);
+            background: black; color: white; font: bold 10px Arial;
+            display: flex; justify-content: center; align-items: center;
+            margin-left: 4px;
+        }
+
+        #realPlayer5 .channel-buttons {
+            display: flex; justify-content: space-around; padding: 5px; flex-wrap: wrap;
+        }
+        #realPlayer5 .channel-button {
+            background-color: rgb(0, 0, 128); color: white;
+            border-top: 2px solid rgb(255, 255, 255); border-left: 2px solid rgb(255, 255, 255);
+            border-right: 2px solid rgb(0, 0, 0); border-bottom: 2px solid rgb(0, 0, 0);
+            padding: 3px 6px; font-size: 11px; margin: 2px;
+        }
+        
+        /* [수정] 정보 패널 */
+        #realPlayer5 .info-panel-rp5 {
+            padding: 5px 8px; background: rgb(192, 192, 192); font-size: 11px;
+            display: flex; justify-content: space-between; align-items: flex-end;
+        }
+        #realPlayer5 .info-texts { flex-grow: 1; }
+        #realPlayer5 .info-texts > div { display: flex; align-items: center; margin-bottom: 2px; }
+        #realPlayer5 .info-texts label { width: 60px; }
+        #realPlayer5 .info-field {
+            background: white; color: black; padding: 2px 4px; flex-grow: 1;
+            border: 2px solid;
+            border-color: rgb(128, 128, 128) rgb(255, 255, 255) rgb(255, 255, 255) rgb(128, 128, 128);
+        }
+        /* [수정] 정보 아이콘 (움푹 파인 원형) */
+        #realPlayer5 .info-icons { display: flex; margin-left: 5px; }
+        #realPlayer5 .rp5-icon-button {
+            width: 22px; height: 22px; font-size: 11px;
+            display: flex; justify-content: center; align-items: center;
+            border-radius: 50%;
+            border: 2px solid;
+            border-color: rgb(128, 128, 128) rgb(255, 255, 255) rgb(255, 255, 255) rgb(128, 128, 128);
+            margin-left: 2px;
+        }
+        
+        /* [수정] 상태바 (2줄 구조) */
+        #realPlayer5 .status-area {
+            padding: 4px 8px;
+        }
+        #realPlayer5 .status-text {
+            font-size: 11px;
+        }
+        #realPlayer5 .status-bar-black {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 4px; background: black; color: white;
+            border: 2px solid;
+            border-color: rgb(128, 128, 128) rgb(255, 255, 255) rgb(255, 255, 255) rgb(128, 128, 128);
+        }
+        #realPlayer5 .status-audio-mode { color: limegreen; font-weight: bold; }
+        #realPlayer5 .status-time { color: limegreen; font-weight: bold; }
+        #realPlayer5 .status-icons { display: flex; }
+        
+        /* --- WMP 11 CSS 삭제됨 --- */
+        
+    </style>
+</head>
+<body>
+    <!-- 1. 왼쪽 상단 컨트롤 패널 -->
+    <div id="global-control-panel">
+        <!-- 1a. 탭 버튼들 -->
+        <div class="tab-buttons">
+            <button class="tab-link active" onclick="openPlayer('wmpClassicPlayer')">WMP Classic</button>
+            <button class="tab-link" onclick="openPlayer('realPlayer5')">RealPlayer 5.0</button>
+            <!-- WMP 11 탭 제거됨 -->
+        </div>
+        <!-- 1b. 공용 파일 로더 -->
+        <div class="global-controls">
+            <label for="globalFileInput" class="retro-file-label">미디어 열기 (Open Media)...</label>
+            <input type="file" id="globalFileInput" accept="video/*,audio/*">
+            <span id="globalFileName" class="file-name-display">선택된 파일 없음</span>
+        </div>
+    </div>
+
+    <!-- 2. 중앙 플레이어 래퍼 -->
+    <div id="player-wrapper">
+        <!-- 플레이어 1: 윈도우 미디어 플레이어 클래식 -->
+        <div id="wmpClassicPlayer" class="player-content" style="display: block;">
+            <div class="retro-title-bar">
+                <span>Media Player</span>
+                <div class="retro-window-buttons">
+                    <span class="retro-window-button">_</span><span class="retro-window-button">□</span><span class="retro-window-button">X</span>
+                </div>
+            </div>
+            <div class="retro-menu-bar">
+                <span><u>F</u>ile</span> <span><u>V</u>iew</span> <span><u>P</u>lay</span>
+            </div>
+            <div class="retro-video-screen">
+                <img id="videoLogoWMP" src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Windows_Logo_%281992-2001%29.svg/1080px-Windows_Logo_%281992-2001%29.svg.png" alt="Windows Logo">
+                <video id="videoPlayerWMP"></video>
+            </div>
+            <div class="controls-panel">
+                <div class="playback-controls">
+                    <button id="playBtnWMP" class="retro-control-button">►</button>
+                    <button id="pauseBtnWMP" class="retro-control-button">❚❚</button>
+                    <button id="stopBtnWMP" class="retro-control-button">■</button>
+                    <input type="range" id="seekBarWMP" class="retro-seek-bar" value="0">
+                </div>
+            </div>
+            <div class="retro-info-panel" id="infoPanelWMP">
+                Clip: <span id="infoClipWMP">N/A</span>
+            </div>
+        </div>
+
+        <!-- 플레이어 2: 리얼플레이어 5.0 (사진 기준) -->
+        <div id="realPlayer5" class="player-content">
+            <div class="retro-title-bar">
+                <span>RealPlayer</span>
+                <div class="retro-window-buttons">
+                    <span class="retro-window-button">_</span><span class="retro-window-button">□</span><span class="retro-window-button">X</span>
+                </div>
+            </div>
+            <div class="retro-menu-bar">
+                <span><u>F</u>ile</span> <span><u>V</u>iew</span> <span><u>C</u>lip</span> <span><u>S</u>ites</span> <span><u>H</u>elp</span>
+            </div>
+            <!-- [수정] 컨트롤 패널 HTML -->
+            <div class="controls-panel">
+                <button id="playBtnRP5" class="rp5-control-button">►</button>
+                <button id="stopBtnRP5" class="rp5-control-button">■</button>
+                <button class="rp5-control-button">|</button>
+                <button class="rp5-control-button">|</button>
+                <div class="rp5-seek-bar-container">
+                    <input type="range" id="seekBarRP5" class="rp5-seek-bar" value="0">
+                </div>
+                <button class="rp5-control-button">◄◄</button>
+                <button class="rp5-control-button">►►</button>
+                <div class="rp5-logo">real</div>
+            </div>
+            <div class="retro-video-screen">
+                <img id="videoLogoRP5" src="https://static.wikia.nocookie.net/logopedia/images/8/86/REALPLAYER5-THANKYOULOGO.svg/revision/latest?cb=20250926084400" alt="RealPlayer Logo">
+                <video id="videoPlayerRP5"></video>
+            </div>
+            <div class="channel-buttons">
+                <span class="channel-button">News</span><span class="channel-button">Biz/Tech</span><span class="channel-button">Sports</span>
+                <span class="channel-button">Entertain</span><span class="channel-button">Music</span><span class="channel-button">Daily</span>
+            </div>
+            <!-- [수정] 정보 패널 HTML -->
+            <div class="info-panel-rp5" id="infoPanelRP5">
+                <div class="info-texts">
+                    <div><label>Title:</label> <span id="infoClipRP5" class="info-field">N/A</span></div>
+                    <div><label>Author:</label> <span class="info-field">N/A</span></div>
+                    <div><label>Copyright:</label> <span class="info-field">N/A</span></div>
+                </div>
+                <div class="info-icons">
+                    <span class="rp5-icon-button">i</span>
+                    <span class="rp5-icon-button">©</span>
+                </div>
+            </div>
+            <!-- [수정] 상태바 HTML (2줄 구조) -->
+            <div class="status-area">
+                <div id="statusRP5" class="status-text">Stopped</div>
+                <div class="status-bar-black">
+                    <span class="status-audio-mode">Stereo</span>
+                    <span id="timeRP5" class="status-time">00:00.0 / 00:00.0</span>
+                    <div class="status-icons">
+                        <span class="rp5-icon-button" style="width: 18px; height: 18px; color: #000;">⚲</span>
+                        <span class="rp5-icon-button" style="width: 18px; height: 18px; color: #000;">+</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- WMP 11 HTML 제거됨 -->
+
+    </div>
+
+    <script>
+        let activePlayerId = 'wmpClassicPlayer';
+        const defaultInfoHTMLs = {};
+
+        function openPlayer(playerId) {
+            document.querySelectorAll('.player-content').forEach(content => {
+                content.style.display = 'none';
+            });
+            document.querySelectorAll('.tab-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            document.getElementById(playerId).style.display = 'block';
+            const activeButton = document.querySelector(`.tab-link[onclick="openPlayer('${playerId}')"]`);
+            if (activeButton) {
+                activeButton.classList.add('active');
+            }
+            activePlayerId = playerId;
+        }
+
+        function handleGlobalFileOpen(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            document.getElementById('globalFileName').textContent = file.name;
+
+            let ids;
+            switch (activePlayerId) {
+                case 'wmpClassicPlayer':
+                    ids = { video: 'videoPlayerWMP', logo: 'videoLogoWMP', info: 'infoPanelWMP', clip: 'infoClipWMP' };
+                    break;
+                case 'realPlayer5':
+                    ids = { video: 'videoPlayerRP5', logo: 'videoLogoRP5', info: 'infoPanelRP5', clip: 'infoClipRP5' };
+                    break;
+                // WMP 11 case 제거됨
+            }
+            if (ids) {
+                loadAndDisplayFile(file, ids);
+            }
+        }
+        
+        function loadAndDisplayFile(file, elementIds) {
+            const videoPlayer = document.getElementById(elementIds.video);
+            const videoLogo = document.getElementById(elementIds.logo);
+            const infoPanel = document.getElementById(elementIds.info);
+            
+            // [수정] infoPanel이 아닐 수도 있음 (RP5)
+            if (infoPanel) {
+                infoPanel.style.color = ''; 
+                infoPanel.innerHTML = defaultInfoHTMLs[activePlayerId]; 
+            }
+            
+            // RP5는 infoPanel 대신 status-area를 복원해야 할 수도 있음
+            if (activePlayerId === 'realPlayer5') {
+                 document.getElementById('statusRP5').innerHTML = defaultInfoHTMLs[activePlayerId].status;
+                 document.getElementById('infoPanelRP5').innerHTML = defaultInfoHTMLs[activePlayerId].info;
+            }
+
+            const infoClip = document.getElementById(elementIds.clip);
+            if(infoClip) {
+                infoClip.textContent = file.name;
+            }
+
+            const fileURL = URL.createObjectURL(file);
+            videoPlayer.src = fileURL;
+            
+            if (file.type.startsWith('audio/')) {
+                videoLogo.style.display = 'block';
+                videoPlayer.style.display = 'none';
+            } else {
+                videoLogo.style.display = 'none';
+                videoPlayer.style.display = 'block';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+        
+            defaultInfoHTMLs['wmpClassicPlayer'] = document.getElementById('infoPanelWMP').innerHTML;
+            // [수정] RP5는 2부분을 저장
+            defaultInfoHTMLs['realPlayer5'] = {
+                info: document.getElementById('infoPanelRP5').innerHTML,
+                status: document.getElementById('statusRP5').innerHTML
+            };
+            // WMP 11 default HTML 제거됨
+
+            document.getElementById('globalFileInput').addEventListener('change', handleGlobalFileOpen);
+
+            // Player 1: WMP Classic
+            setupPlayer('WMP', {
+                videoPlayer: 'videoPlayerWMP', videoLogo: 'videoLogoWMP', infoPanel: 'infoPanelWMP',
+                playBtn: 'playBtnWMP', pauseBtn: 'pauseBtnWMP', stopBtn: 'stopBtnWMP',
+                seekBar: 'seekBarWMP'
+            });
+
+            // Player 2: RealPlayer 5.0
+            setupPlayer('RP5', {
+                videoPlayer: 'videoPlayerRP5', videoLogo: 'videoLogoRP5', infoPanel: 'infoPanelRP5',
+                playBtn: 'playBtnRP5', stopBtn: 'stopBtnRP5',
+                seekBar: 'seekBarRP5', status: 'statusRP5', time: 'timeRP5'
+            });
+            
+            // WMP 11 setupPlayer 호출 제거됨
+        });
+
+        function setupPlayer(prefix, ids) {
+            const videoPlayer = document.getElementById(ids.videoPlayer);
+            const videoLogo = document.getElementById(ids.videoLogo);
+            const infoPanel = document.getElementById(ids.infoPanel);
+            
+            const playBtn = document.getElementById(ids.playBtn);
+            const pauseBtn = document.getElementById(ids.pauseBtn); // WMP Classic 전용
+            const stopBtn = document.getElementById(ids.stopBtn);
+            const seekBar = document.getElementById(ids.seekBar);
+            
+            const statusSpan = document.getElementById(ids.status);
+            const timeSpan = document.getElementById(ids.time);
+
+            videoPlayer.addEventListener('error', function() {
+                videoLogo.style.display = 'block';
+                videoPlayer.style.display = 'none';
+                document.getElementById('globalFileName').textContent = "미디어 열기 실패";
+                
+                // WMP 11 case 제거됨
+                if (activePlayerId === 'realPlayer5') {
+                    // 기본 HTML로 복원
+                    document.getElementById('infoPanelRP5').innerHTML = defaultInfoHTMLs['realPlayer5'].info;
+                    document.getElementById('statusRP5').innerHTML = "Error";
+                    // 오류 메시지 표시
+                    const clipField = document.getElementById('infoClipRP5');
+                    if (clipField) {
+                        clipField.textContent = "Error: Format not supported";
+                        clipField.style.color = "red";
+                    }
+                } else { // WMP Classic
+                     infoPanel.innerHTML = `<span style="color:yellow;"><strong>오류:</strong> 브라우저가 이 미디어 형식을<br>지원하지 않습니다. (예: WMV, AVI)</span>`;
+                }
+            });
+
+            playBtn.addEventListener('click', () => {
+                if (!videoPlayer.src || videoPlayer.error) return; 
+                if (videoPlayer.paused) { videoPlayer.play(); } else { videoPlayer.pause(); }
+            });
+            if (pauseBtn) { // WMP Classic 전용
+                pauseBtn.addEventListener('click', () => { if (!videoPlayer.error) videoPlayer.pause(); });
+            }
+            stopBtn.addEventListener('click', () => {
+                if (!videoPlayer.error) { videoPlayer.pause(); videoPlayer.currentTime = 0; }
+            });
+
+            // [수정] RP5 상태 텍스트 및 버튼 변경
+            videoPlayer.addEventListener('play', () => {
+                if (statusSpan) statusSpan.textContent = 'Playing';
+                if (prefix === 'RP5') playBtn.textContent = '❚❚'; 
+            });
+            videoPlayer.addEventListener('pause', () => {
+                if (statusSpan) statusSpan.textContent = 'Paused';
+                if (prefix === 'RP5') playBtn.textContent = '►';
+            });
+            videoPlayer.addEventListener('ended', () => {
+                if (statusSpan) statusSpan.textContent = 'Stopped';
+                if (prefix === 'RP5') playBtn.textContent = '►';
+            });
+            
+            // 실시간 시간 표시 (기존과 동일, RP5/WMP Classic은 밀리초 사용)
+            videoPlayer.addEventListener('timeupdate', () => {
+                if (isNaN(videoPlayer.duration)) return;
+                const value = (100 / videoPlayer.duration) * videoPlayer.currentTime;
+                seekBar.value = value;
+                if (timeSpan) {
+                     timeSpan.textContent = `${formatTime(videoPlayer.currentTime, true)} / ${formatTime(videoPlayer.duration, true)}`;
+                }
+            });
+
+            seekBar.addEventListener('input', () => {
+                if (isNaN(videoPlayer.duration)) return;
+                const time = (videoPlayer.duration / 100) * seekBar.value;
+                videoPlayer.currentTime = time;
+            });
+
+            videoPlayer.addEventListener('loadedmetadata', () => {
+                seekBar.value = 0;
+                 if (timeSpan && !isNaN(videoPlayer.duration)) {
+                     timeSpan.textContent = `00:00.0 / ${formatTime(videoPlayer.duration, true)}`;
+                } else if (timeSpan) {
+                    timeSpan.textContent = '00:00.0 / 00:00.0';
+                }
+            });
+        }
+        
+        function formatTime(seconds, useMillis) {
+            if (isNaN(seconds)) return useMillis ? '00:00.0' : '0:00';
+            
+            const min = Math.floor(seconds / 60);
+            const sec = Math.floor(seconds % 60);
+            
+            if (useMillis) {
+                const mil = Math.floor((seconds - (min * 60) - sec) * 10);
+                return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${mil}`;
+            } else {
+                return `${min}:${String(sec).padStart(2, '0')}`;
+            }
+        }
+
+    </script>
+</body>
+</html>
+
+
